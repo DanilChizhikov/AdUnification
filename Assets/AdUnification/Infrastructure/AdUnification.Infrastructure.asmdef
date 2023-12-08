@@ -1,5 +1,5 @@
 {
-    "name": "AdUnification.Infrastruction",
+    "name": "AdUnification.Infrastructure",
     "rootNamespace": "MbsCore",
     "references": [],
     "includePlatforms": [],
