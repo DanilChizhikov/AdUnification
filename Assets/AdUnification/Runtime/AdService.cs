@@ -8,13 +8,13 @@ namespace MbsCore.AdUnification.Runtime
 {
     public sealed class AdService : IAdService, IDisposable
     {
-        public event Action<AdvertisementStatus> OnStatusChanged;
+        public event Action<AdStatus> OnStatusChanged;
         public event Action<AdType, bool> OnAdShown;
 
         private readonly HashSet<IAdProvider> _providers;
         
         public bool IsInitialized { get; private set; }
-        public AdvertisementStatus Status { get; private set; }
+        public AdStatus Status { get; private set; }
 
         public bool IsAnyAdShowing
         {
@@ -60,7 +60,7 @@ namespace MbsCore.AdUnification.Runtime
             IsInitialized = true;
         }
 
-        public void SetStatus(AdvertisementStatus value)
+        public void SetStatus(AdStatus value)
         {
             if (Status == value)
             {
@@ -111,7 +111,7 @@ namespace MbsCore.AdUnification.Runtime
 
             switch (Status)
             {
-                case AdvertisementStatus.Default:
+                case AdStatus.Default:
                 {
                     if (!TryGetProvider(type, out IAdProvider provider))
                     {
@@ -122,7 +122,7 @@ namespace MbsCore.AdUnification.Runtime
                     return true;
                 }
 
-                case AdvertisementStatus.Blocked:
+                case AdStatus.Blocked:
                 {
                     callback?.Invoke(type, true);
                 } return true;
@@ -197,7 +197,7 @@ namespace MbsCore.AdUnification.Runtime
         private void ResetToDefault()
         {
             IsInitialized = false;
-            Status = AdvertisementStatus.Default;
+            Status = AdStatus.Default;
         }
         
         private void AdShownCallback(AdType type, bool result)
