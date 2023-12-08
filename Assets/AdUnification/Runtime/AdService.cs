@@ -53,6 +53,7 @@ namespace MbsCore.AdUnification.Runtime
             
             foreach (IAdProvider provider in _providers)
             {
+                provider.OnAdShown += AdShownCallback;
                 provider.Initialize();
             }
 
@@ -156,6 +157,7 @@ namespace MbsCore.AdUnification.Runtime
 
             foreach (IAdProvider provider in _providers)
             {
+                provider.OnAdShown -= AdShownCallback;
                 provider.DeInitialize();
             }
             
@@ -196,6 +198,11 @@ namespace MbsCore.AdUnification.Runtime
         {
             IsInitialized = false;
             Status = AdvertisementStatus.Default;
+        }
+        
+        private void AdShownCallback(AdType type, bool result)
+        {
+            OnAdShown?.Invoke(type, result);
         }
     }
 }
