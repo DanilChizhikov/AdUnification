@@ -4,8 +4,7 @@ namespace MbsCore.AdUnification.Infrastructure
     {
         None = 0,
         Interstitial = 1,
-        SkipableVideo = 2,
-        RewardedVideo = 3,
-        Banner = 4,
+        Rewarded = 2,
+        Banner = 3,
     }
 }
