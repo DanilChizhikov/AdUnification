@@ -1,7 +1,9 @@
 {
     "name": "AdUnification.Runtime",
     "rootNamespace": "MbsCore",
-    "references": [],
+    "references": [
+        "GUID:cef96de3a8f8643da93de076016b3341"
+    ],
     "includePlatforms": [],
     "excludePlatforms": [],
     "allowUnsafeCode": false,

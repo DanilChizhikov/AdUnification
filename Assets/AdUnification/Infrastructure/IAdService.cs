@@ -7,9 +7,11 @@ namespace MbsCore.AdUnification.Infrastructure
         event Action<AdvertisementStatus> OnStatusChanged;
         event Action<AdType, bool> OnAdShown;
         
+        bool IsInitialized { get; }
         AdvertisementStatus Status { get; }
         bool IsAnyAdShowing { get; }
-        
+
+        void Initialize();
         void SetStatus(AdvertisementStatus value);
         bool IsAdReady(AdType type);
         bool IsAdShowing(AdType type);
