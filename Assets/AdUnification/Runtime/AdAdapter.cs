@@ -31,6 +31,13 @@ namespace MbsCore.AdUnification.Runtime
         public bool IsAdReady => IsInitialized && IsReady();
         public bool IsAdShowing => IsInitialized && IsShowing();
         
+        protected TConfig Config { get; }
+
+        public AdAdapter(TConfig config)
+        {
+            Config = config;
+        }
+        
         public void Initialize()
         {
             if (IsInitialized)
