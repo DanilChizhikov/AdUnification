@@ -1,7 +1,6 @@
-using MbsCore.AdUnification.Infrastructure;
 using UnityEngine;
 
-namespace MbsCore.AdUnification.Runtime
+namespace DTech.AdUnification
 {
     public abstract class AdConfig : ScriptableObject, IAdConfig
     {

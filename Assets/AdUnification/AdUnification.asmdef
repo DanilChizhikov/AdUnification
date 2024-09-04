@@ -1,6 +1,6 @@
 {
-    "name": "AdUnification.Infrastructure",
-    "rootNamespace": "MbsCore",
+    "name": "AdUnification",
+    "rootNamespace": "DTech",
     "references": [],
     "includePlatforms": [],
     "excludePlatforms": [],

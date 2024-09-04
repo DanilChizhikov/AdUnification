@@ -1,25 +1,25 @@
 using System;
 using System.Collections.Generic;
-using MbsCore.AdUnification.Infrastructure;
 
-namespace MbsCore.AdUnification.Runtime
+namespace DTech.AdUnification
 {
     public abstract class AdProvider<TConfig, TAdapter> : IAdProvider
             where TConfig : IAdConfig where TAdapter : AdAdapter<TConfig>
     {
-        private readonly Dictionary<AdType, TAdapter> _adaptersMap;
-        
-        public event Action<AdType, bool> OnAdShown;
-        
+        private readonly Dictionary<Type, int> _adapterIndexMap;
+        private readonly List<TAdapter> _adapters;
+
+        public event Action<IAdResponse> OnAdShown;
         public bool IsInitialized { get; private set; }
 
         public bool IsAnyAdShowing
         {
             get
             {
-                foreach (var adapter in _adaptersMap)
+                for (int i = 0; i < _adapters.Count; i++)
                 {
-                    if (IsAdShowing(adapter.Key))
+                    TAdapter adapter = _adapters[i];
+                    if (adapter.IsAdShowing)
                     {
                         return true;
                     }
@@ -35,13 +35,15 @@ namespace MbsCore.AdUnification.Runtime
 
         public AdProvider(TConfig config, IEnumerable<TAdapter> adapters)
         {
-            _adaptersMap = new Dictionary<AdType, TAdapter>();
-            foreach (TAdapter adapter in adapters)
+            Config = config.ThrowIfNull();
+            _adapterIndexMap = new Dictionary<Type, int>();
+            _adapters = new List<TAdapter>(adapters.ThrowIfNull());
+            for (int i = 0; i < _adapters.Count; i++)
             {
-                _adaptersMap.Add(adapter.Type, adapter);
+                TAdapter adapter = _adapters[i];
+                _adapterIndexMap.Add(adapter.ServicedRequestType, i);
             }
-
-            Config = config;
+            
             IsInitialized = false;
         }
         
@@ -57,9 +59,9 @@ namespace MbsCore.AdUnification.Runtime
             IsInitialized = true;
         }
 
-        public bool IsAdReady(AdType type)
+        public bool IsAdReady<T>() where T : IAdRequest
         {
-            if (!IsInitialized || !_adaptersMap.TryGetValue(type, out TAdapter adapter))
+            if (!IsInitialized || !TryGetAdapter(typeof(T), out TAdapter adapter))
             {
                 return false;
             }
@@ -67,30 +69,28 @@ namespace MbsCore.AdUnification.Runtime
             return adapter.IsAdReady;
         }
 
-        public bool IsAdShowing(AdType type)
-        {
-            if (!IsInitialized || !_adaptersMap.TryGetValue(type, out TAdapter adapter))
-            {
-                return false;
-            }
+        public bool IsAdShowing<T>() where T : IAdRequest => IsAdShowing(typeof(T));
 
-            return adapter.IsAdShowing;
-        }
-
-        public void ShowAd(AdType type, Action<AdType, bool> callback, string placement)
+        public void ShowAd(IAdRequest request, Action<IAdResponse> callback)
         {
-            if (!IsInitialized || !_adaptersMap.TryGetValue(type, out TAdapter adapter))
+            if (!IsInitialized || !TryGetAdapter(request.GetType(), out TAdapter adapter))
             {
-                callback?.Invoke(type, false);
+                var response = new SimpleResponse
+                {
+                    Request = request,
+                    IsSuccessful = false,
+                };
+                
+                callback?.Invoke(response);
                 return;
             }
             
-            adapter.ShowAd(placement, callback);
+            adapter.ShowAd(request, callback);
         }
 
-        public void HideAd(AdType type)
+        public void HideAd<T>() where T : IAdRequest
         {
-            if (!IsInitialized || !_adaptersMap.TryGetValue(type, out TAdapter adapter))
+            if (!IsInitialized || !TryGetAdapter(typeof(T), out TAdapter adapter))
             {
                 return;
             }
@@ -115,25 +115,77 @@ namespace MbsCore.AdUnification.Runtime
 
         private void InitializeAdapters()
         {
-            foreach (var adapter in _adaptersMap)
+            for (int i = 0; i < _adapters.Count; i++)
             {
-                adapter.Value.OnAdShown += AdShownCallback;
-                adapter.Value.Initialize();
+                TAdapter adapter = _adapters[i];
+                adapter.OnAdShown += AdShownCallback;
+                adapter.Initialize();
             }
+        }
+
+        private bool IsAdShowing(Type requestType)
+        {
+            if (!IsInitialized || !TryGetAdapter(requestType, out TAdapter adapter))
+            {
+                return false;
+            }
+
+            return adapter.IsAdShowing;
+        }
+
+        private bool TryGetAdapter(Type requestType, out TAdapter adapter)
+        {
+            bool hasAdapter = _adapterIndexMap.TryGetValue(requestType, out int index);
+            if (!hasAdapter)
+            {
+                index = GetAdapterIndex(requestType);
+                hasAdapter = index >= 0;
+                if (hasAdapter)
+                {
+                    _adapterIndexMap.Add(requestType, index);
+                }
+            }
+
+            adapter = hasAdapter ? _adapters[index] : null;
+            return hasAdapter;
+        }
+
+        private int GetAdapterIndex(Type requestType)
+        {
+            int index = -1;
+            int smallestWeight = int.MaxValue;
+            for (int i = 0; i < _adapters.Count; i++)
+            {
+                TAdapter adapter = _adapters[i];
+                if (!adapter.ServicedRequestType.IsAssignableFrom(requestType))
+                {
+                    continue;
+                }
+
+                int weight = adapter.ServicedRequestType.Comparison(requestType);
+                if (weight <= smallestWeight)
+                {
+                    smallestWeight = weight;
+                    index = i;
+                }
+            }
+            
+            return index;
         }
 
         private void DeInitializeAdapters()
         {
-            foreach (var adapter in _adaptersMap)
+            for (int i = 0; i < _adapters.Count; i++)
             {
-                adapter.Value.OnAdShown -= AdShownCallback;
-                adapter.Value.DeInitialize();
+                TAdapter adapter = _adapters[i];
+                adapter.OnAdShown -= AdShownCallback;
+                adapter.DeInitialize();
             }
         }
         
-        private void AdShownCallback(AdType type, bool result)
+        private void AdShownCallback(IAdResponse response)
         {
-            OnAdShown?.Invoke(type, result);
+            OnAdShown?.Invoke(response);
         }
     }
 }

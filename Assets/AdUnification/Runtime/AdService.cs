@@ -1,15 +1,14 @@
 using System;
 using System.Collections.Generic;
-using MbsCore.AdUnification.Infrastructure;
 using UnityEngine;
 using Random = UnityEngine.Random;
 
-namespace MbsCore.AdUnification.Runtime
+namespace DTech.AdUnification
 {
     public sealed class AdService : IAdService, IDisposable
     {
         public event Action<AdStatus> OnStatusChanged;
-        public event Action<AdType, bool> OnAdShown;
+        public event Action<IAdResponse> OnAdShown;
 
         private readonly HashSet<IAdProvider> _providers;
         
@@ -34,13 +33,13 @@ namespace MbsCore.AdUnification.Runtime
 
         public AdService(IEnumerable<IAdProvider> providers)
         {
-            _providers = new HashSet<IAdProvider>(providers);
+            _providers = new HashSet<IAdProvider>(providers.ThrowIfNull());
             ResetToDefault();
         }
 
         public AdService(params IAdProvider[] providers)
         {
-            _providers = new HashSet<IAdProvider>(providers);
+            _providers = new HashSet<IAdProvider>(providers.ThrowIfNull());
             ResetToDefault();
         }
 
@@ -71,7 +70,7 @@ namespace MbsCore.AdUnification.Runtime
             OnStatusChanged?.Invoke(Status);
         }
 
-        public bool IsAdReady(AdType type)
+        public bool AdIsReady<T>() where T : IAdRequest
         {
             if (Application.isEditor)
             {
@@ -80,7 +79,7 @@ namespace MbsCore.AdUnification.Runtime
 
             foreach (IAdProvider provider in _providers)
             {
-                if (provider.IsAdReady(type))
+                if (provider.IsAdReady<T>())
                 {
                     return true;
                 }
@@ -89,11 +88,11 @@ namespace MbsCore.AdUnification.Runtime
             return false;
         }
 
-        public bool IsAdShowing(AdType type)
+        public bool AdIsShowing<T>() where T : IAdRequest
         {
             foreach (IAdProvider provider in _providers)
             {
-                if (provider.IsAdShowing(type))
+                if (provider.IsAdShowing<T>())
                 {
                     return true;
                 }
@@ -102,29 +101,35 @@ namespace MbsCore.AdUnification.Runtime
             return false;
         }
 
-        public bool TryAdShow(AdType type, Action<AdType, bool> callback = null, string placement = null)
+        public bool TryAdShow<T>(T request, Action<IAdResponse> callback = null) where T : IAdRequest
         {
-            if (!IsAdReady(type))
+            if (!AdIsReady<T>())
             {
                 return false;
             }
-
+            
             switch (Status)
             {
                 case AdStatus.Default:
                 {
-                    if (!TryGetProvider(type, out IAdProvider provider))
+                    if (!TryGetProvider<T>(out IAdProvider provider))
                     {
                         return false;
                     }
 
-                    provider.ShowAd(type, callback, placement);
+                    provider.ShowAd(request.ThrowIfNull(), callback);
                     return true;
                 }
 
                 case AdStatus.Blocked:
                 {
-                    callback?.Invoke(type, true);
+                    var response = new SimpleResponse
+                    {
+                        Request = request.ThrowIfNull(),
+                        IsSuccessful = true,
+                    };
+                    
+                    callback?.Invoke(response);
                 } return true;
 
                 default:
@@ -132,18 +137,18 @@ namespace MbsCore.AdUnification.Runtime
             }
         }
 
-        public void HideAd(AdType type)
+        public void HideAd<T>() where T : IAdRequest
         {
-            if (!IsAdShowing(type))
+            if (!AdIsShowing<T>())
             {
                 return;
             }
 
             foreach (IAdProvider provider in _providers)
             {
-                if (provider.IsAdShowing(type))
+                if (provider.IsAdShowing<T>())
                 {
-                    provider.HideAd(type);
+                    provider.HideAd<T>();
                 }
             }
         }
@@ -164,14 +169,14 @@ namespace MbsCore.AdUnification.Runtime
             IsInitialized = false;
         }
         
-        private bool TryGetProvider(AdType type, out IAdProvider provider)
+        private bool TryGetProvider<T>(out IAdProvider provider) where T : IAdRequest
         {
             provider = null;
             var availableProviders = new HashSet<IAdProvider>();
             int maxWeight = int.MinValue;
             foreach (IAdProvider advertisementProvider in _providers)
             {
-                if (!advertisementProvider.IsAdReady(type))
+                if (!advertisementProvider.IsAdReady<T>())
                 {
                     continue;
                 }
@@ -200,9 +205,9 @@ namespace MbsCore.AdUnification.Runtime
             Status = AdStatus.Default;
         }
         
-        private void AdShownCallback(AdType type, bool result)
+        private void AdShownCallback(IAdResponse response)
         {
-            OnAdShown?.Invoke(type, result);
+            OnAdShown?.Invoke(response);
         }
     }
 }

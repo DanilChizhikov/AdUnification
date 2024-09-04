@@ -1,31 +1,36 @@
 using System;
-using MbsCore.AdUnification.Infrastructure;
 
-namespace MbsCore.AdUnification.Runtime
+namespace DTech.AdUnification
 {
     public abstract class AdAdapter<TConfig> : IAdAdapter
             where TConfig : IAdConfig
     {
         private class AdCallbackHandler
         {
-            public event Action<AdType, bool> OnCallback; 
-            
-            private readonly AdType _type;
+            public event Action<IAdResponse> OnCallback;
 
-            public AdCallbackHandler(AdType type)
+            private readonly IAdRequest _request;
+
+            public AdCallbackHandler(IAdRequest request)
             {
-                _type = type;
+                _request = request;
             }
 
             public void Callback(bool result)
             {
-                OnCallback?.Invoke(_type, result);
+                var response = new SimpleResponse
+                {
+                    Request = _request,
+                    IsSuccessful = result,
+                };
+                
+                OnCallback?.Invoke(response);
             }
         }
-        
-        public event Action<AdType, bool> OnAdShown;
-        
-        public abstract AdType Type { get; }
+
+        public event Action<IAdResponse> OnAdShown;
+
+        public abstract Type ServicedRequestType { get; }
         public bool IsInitialized { get; private set; }
 
         public bool IsAdReady => IsInitialized && IsReady();
@@ -35,7 +40,7 @@ namespace MbsCore.AdUnification.Runtime
 
         public AdAdapter(TConfig config)
         {
-            Config = config;
+            Config = config.ThrowIfNull();
         }
         
         public void Initialize()
@@ -49,21 +54,21 @@ namespace MbsCore.AdUnification.Runtime
             IsInitialized = true;
         }
 
-        public void ShowAd(string placement, Action<AdType, bool> callback)
+        public void ShowAd(IAdRequest request, Action<IAdResponse> callback)
         {
-            var callbackHandler = new AdCallbackHandler(Type);
+            var callbackHandler = new AdCallbackHandler(request);
             callbackHandler.OnCallback += callback;
             callbackHandler.OnCallback += OnAdShown;
             if (IsInitialized)
             {
-                ShowAdProcessing(placement, callbackHandler.Callback);
+                ShowAdProcessing(request, callbackHandler.Callback);
             }
             else
             {
                 callbackHandler.Callback(false);
             }
         }
-
+        
         public void HideAd()
         {
             if (IsInitialized)
@@ -86,8 +91,31 @@ namespace MbsCore.AdUnification.Runtime
         protected virtual void InitializeProcessing() { }
         protected abstract bool IsReady();
         protected abstract bool IsShowing();
-        protected abstract void ShowAdProcessing(string placement, Action<bool> callback);
+        protected abstract void ShowAdProcessing(IAdRequest request, Action<bool> callback);
         protected abstract void HideAdProcessing();
         protected virtual void DeInitializeProcessing() { }
+    }
+
+    public abstract class AdAdapter<TConfig, TRequest> : AdAdapter<TConfig>
+        where TConfig : IAdConfig
+        where TRequest : IAdRequest
+    {
+        public sealed override Type ServicedRequestType => typeof(TRequest);
+
+        public AdAdapter(TConfig config) : base(config)
+        {
+        }
+
+        protected sealed override void ShowAdProcessing(IAdRequest request, Action<bool> callback)
+        {
+            if (request is not TRequest genericRequest)
+            {
+                throw new InvalidCastException($"Request is not of type {typeof(TRequest).Name}");
+            }
+            
+            ShowAdProcessing(genericRequest, callback);
+        }
+        
+        protected abstract void ShowAdProcessing(TRequest request, Action<bool> callback);
     }
 }
