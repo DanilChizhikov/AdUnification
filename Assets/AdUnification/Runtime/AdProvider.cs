@@ -6,7 +6,7 @@ namespace DTech.AdUnification
     public abstract class AdProvider<TConfig, TAdapter> : IAdProvider
             where TConfig : IAdConfig where TAdapter : AdAdapter<TConfig>
     {
-        private readonly AdAdapterMap<TConfig, TAdapter> _adAdapterMap;
+        private readonly AdAdapterMap<TAdapter> _adAdapterMap;
 
         public event Action<IAdResponse> OnAdShown;
         public bool IsInitialized { get; private set; }
@@ -35,7 +35,7 @@ namespace DTech.AdUnification
         public AdProvider(TConfig config, IEnumerable<TAdapter> adapters)
         {
             Config = config.ThrowIfNull();
-            _adAdapterMap = new AdAdapterMap<TConfig, TAdapter>(adapters);
+            _adAdapterMap = new AdAdapterMap<TAdapter>(adapters);
             IsInitialized = false;
         }
         
@@ -99,6 +99,7 @@ namespace DTech.AdUnification
             
             DeInitializeAdapters();
             DeInitializeProcessing();
+            _adAdapterMap.Clear();
             IsInitialized = false;
         }
         

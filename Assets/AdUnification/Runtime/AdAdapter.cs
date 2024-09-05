@@ -96,11 +96,11 @@ namespace DTech.AdUnification
         protected virtual void DeInitializeProcessing() { }
     }
 
-    public abstract class AdAdapter<TConfig, TRequest> : AdAdapter<TConfig>
+    public abstract class AdAdapter<TConfig, TAd> : AdAdapter<TConfig>
         where TConfig : IAdConfig
-        where TRequest : IAd
+        where TAd : IAd
     {
-        public sealed override Type ServicedRequestType => typeof(TRequest);
+        public sealed override Type ServicedRequestType => typeof(TAd);
 
         public AdAdapter(TConfig config) : base(config)
         {
@@ -108,14 +108,14 @@ namespace DTech.AdUnification
 
         protected sealed override void ShowAdProcessing(IAd request, Action<bool> callback)
         {
-            if (request is not TRequest genericRequest)
+            if (request is not TAd genericRequest)
             {
-                throw new InvalidCastException($"Request is not of type {typeof(TRequest).Name}");
+                throw new InvalidCastException($"Request is not of type {typeof(TAd).Name}");
             }
             
             ShowAdProcessing(genericRequest, callback);
         }
         
-        protected abstract void ShowAdProcessing(TRequest request, Action<bool> callback);
+        protected abstract void ShowAdProcessing(TAd request, Action<bool> callback);
     }
 }

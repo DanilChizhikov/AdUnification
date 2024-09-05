@@ -3,9 +3,8 @@ using System.Collections.Generic;
 
 namespace DTech.AdUnification
 {
-    internal sealed class AdAdapterMap<TConfig, TAdapter>
-        where TConfig : IAdConfig
-        where TAdapter : AdAdapter<TConfig>
+    internal sealed class AdAdapterMap<TAdapter>
+        where TAdapter : IAdAdapter
     {
         private readonly List<TAdapter> _adapters;
         private readonly Dictionary<Type, int> _adapterIndexMap;
@@ -37,8 +36,14 @@ namespace DTech.AdUnification
                 }
             }
 
-            adapter = hasAdapter ? _adapters[index] : null;
+            adapter = hasAdapter ? _adapters[index] : default;
             return hasAdapter;
+        }
+
+        public void Clear()
+        {
+            _adapters.Clear();
+            _adapterIndexMap.Clear();
         }
         
         private int GetAdapterIndex(Type adType)
