@@ -28,7 +28,7 @@ Prerequisites:
 1. Navigate to your project's Packages folder and open the manifest.json file.
 2. Add this line below the "dependencies": { line
     - ```json title="Packages/manifest.json"
-      "com.danilchizhikov.adunification": "https://github.com/DanilChizhikov/AdUnification.git?path=Assets/AdUnification#0.0.1",
+      "com.danilchizhikov.adunification": "https://github.com/DanilChizhikov/AdUnification.git?path=Assets/AdUnification",
       ```
 UPM should now install the package.
 
@@ -54,7 +54,7 @@ public class AdServiceBootstrap : MonoBehaviour
             return;
         }
 
-        var adapters = new List<ExampleAdapter>()
+        var adapters = new List<IAdAdapter>()
                 {
                         new ExampleRewardedAdapter(_config),
                 };
@@ -84,15 +84,14 @@ or you can inherit from the IAdAdapter interface and implement all the methods y
 
 Example Adapter:
 ```csharp
-public abstract class ExampleAdapter : AdAdapter<ExampleConfig>
+public abstract class ExampleAdapter<TAd> : AdAdapter<ExampleConfig, TAd>
+    where TAd : IAd
 {
-    protected ExampleAdapter(ExampleConfig config) : base(config) { }
+    public ExampleAdapter(ExampleConfig config) : base(config) { }
 }
 
-public sealed class ExampleRewardedAdapter : ExampleAdapter
-{
-    public override AdType Type => AdType.Rewarded;
-    
+public sealed class ExampleRewardedAdapter : ExampleAdapter<IRewardedAd>
+{   
     public ExampleRewardedAdapter(ExampleConfig config) : base(config) { }
 
     protected override void InitializeProcessing()
@@ -110,7 +109,7 @@ public sealed class ExampleRewardedAdapter : ExampleAdapter
         return false;
     }
 
-    protected override void ShowAdProcessing(string placement, Action<bool> callback)
+    protected override void ShowAdProcessing(IRewardedAd request, Action<IAdResponse> callback)
     {
         // some code ...
     }
@@ -133,9 +132,9 @@ To create a provider, it is enough to inherit a new class from AdProvider<Config
 
 Example Provider:
 ```csharp
-public sealed class ExampleProvider : AdProvider<ExampleConfig, ExampleAdapter>
+public sealed class ExampleProvider : AdProvider<ExampleConfig, IAdAdapter>
 {
-    public ExampleProvider(ExampleConfig config, IEnumerable<ExampleAdapter> adapters) : base(config, adapters) { }
+    public ExampleProvider(ExampleConfig config, IEnumerable<IAdAdapter> adapters) : base(config, adapters) { }
 
     protected override void InitializeProcessing()
     {
@@ -157,7 +156,7 @@ public interface IAdService
     //Called after switch ad status
     event Action<AdStatus> OnStatusChanged;
     //Called after shown ad with ad type and result
-    event Action<AdType, bool> OnAdShown;
+    event Action<IAdResponse> OnAdShown;
     
     bool IsInitialized { get; }
     AdStatus Status { get; }
@@ -168,12 +167,12 @@ public interface IAdService
     //Switch ad status
     void SetStatus(AdStatus value);
     //Check ad is ready by type
-    bool IsAdReady(AdType type);
+    bool AdIsReady<T>() where T : IAd;
     //Check ad is showing by type
-    bool IsAdShowing(AdType type);
+    bool AdIsShowing<T>() where T : IAd;
     //Try show ad by type
-    bool TryAdShow(AdType type, Action<AdType, bool> callback = null, string placement = null);
-    void HideAd(AdType type);
+    bool TryAdShow(IAd request, Action<IAdResponse> callback = null);
+    void HideAd<T>() where T : IAd;
 }
 ```
 
