@@ -48,7 +48,7 @@ namespace DTech.AdUnification
             for (int i = 0; i < _adapters.Count; i++)
             {
                 TAdapter adapter = _adapters[i];
-                if (!adapter.ServicedRequestType.IsAssignableFrom(adType))
+                if (!adapter.IsInitialized || !adapter.ServicedRequestType.IsAssignableFrom(adType))
                 {
                     continue;
                 }

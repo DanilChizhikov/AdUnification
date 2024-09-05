@@ -176,7 +176,7 @@ namespace DTech.AdUnification
             int maxWeight = int.MinValue;
             foreach (IAdProvider advertisementProvider in _providers)
             {
-                if (!advertisementProvider.IsAdReady<T>())
+                if (!advertisementProvider.IsInitialized || !advertisementProvider.IsAdReady<T>())
                 {
                     continue;
                 }
