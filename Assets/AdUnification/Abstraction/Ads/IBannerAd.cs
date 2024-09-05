@@ -1,6 +1,6 @@
 namespace DTech.AdUnification
 {
-    public interface IBannerAdRequest : IAdRequest
+    public interface IBannerAd : IAd
     {
         AdPosition Position { get; }
     }

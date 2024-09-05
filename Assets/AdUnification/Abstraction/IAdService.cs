@@ -13,9 +13,9 @@ namespace DTech.AdUnification
 
         void Initialize();
         void SetStatus(AdStatus value);
-        bool AdIsReady<T>() where T : IAdRequest;
-        bool AdIsShowing<T>() where T : IAdRequest;
-        bool TryAdShow<T>(T request, Action<IAdResponse> callback = null) where T : IAdRequest;
-        void HideAd<T>() where T : IAdRequest;
+        bool AdIsReady<T>() where T : IAd;
+        bool AdIsShowing<T>() where T : IAd;
+        bool TryAdShow<T>(T request, Action<IAdResponse> callback = null) where T : IAd;
+        void HideAd<T>() where T : IAd;
     }
 }

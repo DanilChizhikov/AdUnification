@@ -59,7 +59,7 @@ namespace DTech.AdUnification
             IsInitialized = true;
         }
 
-        public bool IsAdReady<T>() where T : IAdRequest
+        public bool IsAdReady<T>() where T : IAd
         {
             if (!IsInitialized || !TryGetAdapter(typeof(T), out TAdapter adapter))
             {
@@ -69,15 +69,15 @@ namespace DTech.AdUnification
             return adapter.IsAdReady;
         }
 
-        public bool IsAdShowing<T>() where T : IAdRequest => IsAdShowing(typeof(T));
+        public bool IsAdShowing<T>() where T : IAd => IsAdShowing(typeof(T));
 
-        public void ShowAd(IAdRequest request, Action<IAdResponse> callback)
+        public void ShowAd(IAd request, Action<IAdResponse> callback)
         {
             if (!IsInitialized || !TryGetAdapter(request.GetType(), out TAdapter adapter))
             {
                 var response = new SimpleResponse
                 {
-                    Request = request,
+                    Ad = request,
                     IsSuccessful = false,
                 };
                 
@@ -88,7 +88,7 @@ namespace DTech.AdUnification
             adapter.ShowAd(request, callback);
         }
 
-        public void HideAd<T>() where T : IAdRequest
+        public void HideAd<T>() where T : IAd
         {
             if (!IsInitialized || !TryGetAdapter(typeof(T), out TAdapter adapter))
             {

@@ -2,7 +2,7 @@ namespace DTech.AdUnification
 {
     public interface IAdResponse
     {
-        IAdRequest Request { get; }
+        IAd Ad { get; }
         bool IsSuccessful { get; }
     }
 }

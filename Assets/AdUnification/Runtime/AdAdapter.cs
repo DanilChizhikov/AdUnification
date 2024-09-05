@@ -9,9 +9,9 @@ namespace DTech.AdUnification
         {
             public event Action<IAdResponse> OnCallback;
 
-            private readonly IAdRequest _request;
+            private readonly IAd _request;
 
-            public AdCallbackHandler(IAdRequest request)
+            public AdCallbackHandler(IAd request)
             {
                 _request = request;
             }
@@ -20,7 +20,7 @@ namespace DTech.AdUnification
             {
                 var response = new SimpleResponse
                 {
-                    Request = _request,
+                    Ad = _request,
                     IsSuccessful = result,
                 };
                 
@@ -54,7 +54,7 @@ namespace DTech.AdUnification
             IsInitialized = true;
         }
 
-        public void ShowAd(IAdRequest request, Action<IAdResponse> callback)
+        public void ShowAd(IAd request, Action<IAdResponse> callback)
         {
             var callbackHandler = new AdCallbackHandler(request);
             callbackHandler.OnCallback += callback;
@@ -91,14 +91,14 @@ namespace DTech.AdUnification
         protected virtual void InitializeProcessing() { }
         protected abstract bool IsReady();
         protected abstract bool IsShowing();
-        protected abstract void ShowAdProcessing(IAdRequest request, Action<bool> callback);
+        protected abstract void ShowAdProcessing(IAd request, Action<bool> callback);
         protected abstract void HideAdProcessing();
         protected virtual void DeInitializeProcessing() { }
     }
 
     public abstract class AdAdapter<TConfig, TRequest> : AdAdapter<TConfig>
         where TConfig : IAdConfig
-        where TRequest : IAdRequest
+        where TRequest : IAd
     {
         public sealed override Type ServicedRequestType => typeof(TRequest);
 
@@ -106,7 +106,7 @@ namespace DTech.AdUnification
         {
         }
 
-        protected sealed override void ShowAdProcessing(IAdRequest request, Action<bool> callback)
+        protected sealed override void ShowAdProcessing(IAd request, Action<bool> callback)
         {
             if (request is not TRequest genericRequest)
             {

@@ -70,7 +70,7 @@ namespace DTech.AdUnification
             OnStatusChanged?.Invoke(Status);
         }
 
-        public bool AdIsReady<T>() where T : IAdRequest
+        public bool AdIsReady<T>() where T : IAd
         {
             if (Application.isEditor)
             {
@@ -88,7 +88,7 @@ namespace DTech.AdUnification
             return false;
         }
 
-        public bool AdIsShowing<T>() where T : IAdRequest
+        public bool AdIsShowing<T>() where T : IAd
         {
             foreach (IAdProvider provider in _providers)
             {
@@ -101,7 +101,7 @@ namespace DTech.AdUnification
             return false;
         }
 
-        public bool TryAdShow<T>(T request, Action<IAdResponse> callback = null) where T : IAdRequest
+        public bool TryAdShow<T>(T request, Action<IAdResponse> callback = null) where T : IAd
         {
             if (!AdIsReady<T>())
             {
@@ -125,7 +125,7 @@ namespace DTech.AdUnification
                 {
                     var response = new SimpleResponse
                     {
-                        Request = request.ThrowIfNull(),
+                        Ad = request.ThrowIfNull(),
                         IsSuccessful = true,
                     };
                     
@@ -137,7 +137,7 @@ namespace DTech.AdUnification
             }
         }
 
-        public void HideAd<T>() where T : IAdRequest
+        public void HideAd<T>() where T : IAd
         {
             if (!AdIsShowing<T>())
             {
@@ -169,7 +169,7 @@ namespace DTech.AdUnification
             IsInitialized = false;
         }
         
-        private bool TryGetProvider<T>(out IAdProvider provider) where T : IAdRequest
+        private bool TryGetProvider<T>(out IAdProvider provider) where T : IAd
         {
             provider = null;
             var availableProviders = new HashSet<IAdProvider>();

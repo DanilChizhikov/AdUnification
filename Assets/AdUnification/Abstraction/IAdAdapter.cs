@@ -13,7 +13,7 @@ namespace DTech.AdUnification
         bool IsAdShowing { get; }
         
         void Initialize();
-        void ShowAd(IAdRequest request, Action<IAdResponse> callback);
+        void ShowAd(IAd request, Action<IAdResponse> callback);
         void HideAd();
         void DeInitialize();
     }

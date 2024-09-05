@@ -1,6 +1,6 @@
 namespace DTech.AdUnification
 {
-    public interface IAdRequest
+    public interface IAd
     {
         string Placement { get; }
     }
