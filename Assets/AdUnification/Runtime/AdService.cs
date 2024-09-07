@@ -1,22 +1,35 @@
 using System;
 using System.Collections.Generic;
-using MbsCore.AdUnification.Infrastructure;
-using UnityEngine;
-using Random = UnityEngine.Random;
 
-namespace MbsCore.AdUnification.Runtime
+namespace DTech.AdUnification
 {
     public sealed class AdService : IAdService, IDisposable
     {
-        public event Action<AdStatus> OnStatusChanged;
-        public event Action<AdType, bool> OnAdShown;
+        public event Action<IAdResponse> OnAdShown
+        {
+            add
+            {
+                foreach (var provider in _providers)
+                {
+                    provider.OnAdShown += value;
+                }
+            }
+
+            remove
+            {
+                foreach (var provider in _providers)
+                {
+                    provider.OnAdShown -= value;
+                }
+            }
+        }
 
         private readonly HashSet<IAdProvider> _providers;
+        private readonly Random _random;
         
         public bool IsInitialized { get; private set; }
-        public AdStatus Status { get; private set; }
 
-        public bool IsAnyAdShowing
+        public bool AnyAdIsShowing
         {
             get
             {
@@ -34,14 +47,13 @@ namespace MbsCore.AdUnification.Runtime
 
         public AdService(IEnumerable<IAdProvider> providers)
         {
-            _providers = new HashSet<IAdProvider>(providers);
-            ResetToDefault();
+            _providers = new HashSet<IAdProvider>(providers.ThrowIfNull());
+            _random = new Random();
+            IsInitialized = false;
         }
 
-        public AdService(params IAdProvider[] providers)
+        public AdService(params IAdProvider[] providers) : this(new List<IAdProvider>(providers))
         {
-            _providers = new HashSet<IAdProvider>(providers);
-            ResetToDefault();
         }
 
         public void Initialize()
@@ -53,95 +65,67 @@ namespace MbsCore.AdUnification.Runtime
             
             foreach (IAdProvider provider in _providers)
             {
-                provider.OnAdShown += AdShownCallback;
                 provider.Initialize();
             }
 
             IsInitialized = true;
         }
 
-        public void SetStatus(AdStatus value)
+        public bool IsReady(AdType type)
         {
-            if (Status == value)
+            if (IsInitialized)
             {
-                return;
-            }
-
-            Status = value;
-            OnStatusChanged?.Invoke(Status);
-        }
-
-        public bool IsAdReady(AdType type)
-        {
-            if (Application.isEditor)
-            {
-                return true;
-            }
-
-            foreach (IAdProvider provider in _providers)
-            {
-                if (provider.IsAdReady(type))
+                foreach (var provider in _providers)
                 {
-                    return true;
-                }
-            }
-
-            return false;
-        }
-
-        public bool IsAdShowing(AdType type)
-        {
-            foreach (IAdProvider provider in _providers)
-            {
-                if (provider.IsAdShowing(type))
-                {
-                    return true;
-                }
-            }
-
-            return false;
-        }
-
-        public bool TryAdShow(AdType type, Action<AdType, bool> callback = null, string placement = null)
-        {
-            if (!IsAdReady(type))
-            {
-                return false;
-            }
-
-            switch (Status)
-            {
-                case AdStatus.Default:
-                {
-                    if (!TryGetProvider(type, out IAdProvider provider))
+                    if (provider.IsReady(type))
                     {
-                        return false;
+                        return true;
                     }
-
-                    provider.ShowAd(type, callback, placement);
-                    return true;
                 }
-
-                case AdStatus.Blocked:
-                {
-                    callback?.Invoke(type, true);
-                } return true;
-
-                default:
-                    return false;
             }
+            
+            return false;
         }
 
+        public bool IsShowing(AdType type)
+        {
+            if (IsInitialized)
+            {
+                foreach (var provider in _providers)
+                {
+                    if (provider.IsShowing(type))
+                    {
+                        return true;
+                    }
+                }
+            }
+            
+            return false;
+        }
+
+        public bool TryShowAd(IAdRequest request)
+        {
+            bool result = TryGetProvider(request.ThrowIfNull().Type, out IAdProvider provider);
+            if (result)
+            {
+                provider.Show(request);
+            }
+            else
+            {
+                request.Callback?.Invoke(new AdResponse
+                {
+                    Type = request.Type,
+                    IsSuccessful = false,
+                });
+            }
+
+            return result;
+        }
         public void HideAd(AdType type)
         {
-            if (!IsAdShowing(type))
+            foreach (var provider in _providers)
             {
-                return;
-            }
-
-            foreach (IAdProvider provider in _providers)
-            {
-                if (provider.IsAdShowing(type))
+                if (provider.IsShowing(type))
                 {
                     provider.HideAd(type);
                 }
@@ -157,7 +141,6 @@ namespace MbsCore.AdUnification.Runtime
 
             foreach (IAdProvider provider in _providers)
             {
-                provider.OnAdShown -= AdShownCallback;
                 provider.DeInitialize();
             }
             
@@ -171,7 +154,7 @@ namespace MbsCore.AdUnification.Runtime
             int maxWeight = int.MinValue;
             foreach (IAdProvider advertisementProvider in _providers)
             {
-                if (!advertisementProvider.IsAdReady(type))
+                if (!advertisementProvider.IsInitialized || !advertisementProvider.IsReady(type))
                 {
                     continue;
                 }
@@ -180,7 +163,7 @@ namespace MbsCore.AdUnification.Runtime
                 availableProviders.Add(advertisementProvider);
             }
 
-            int randomWeight = Random.Range(0, maxWeight);
+            int randomWeight = _random.Next(maxWeight);
             foreach (IAdProvider availableProvider in availableProviders)
             {
                 randomWeight -= availableProvider.Weight;
@@ -192,17 +175,6 @@ namespace MbsCore.AdUnification.Runtime
             }
 
             return false;
-        }
-
-        private void ResetToDefault()
-        {
-            IsInitialized = false;
-            Status = AdStatus.Default;
-        }
-        
-        private void AdShownCallback(AdType type, bool result)
-        {
-            OnAdShown?.Invoke(type, result);
         }
     }
 }

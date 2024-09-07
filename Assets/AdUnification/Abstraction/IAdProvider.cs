@@ -1,19 +1,19 @@
 using System;
 
-namespace MbsCore.AdUnification.Infrastructure
+namespace DTech.AdUnification
 {
     public interface IAdProvider
     {
-        event Action<AdType, bool> OnAdShown; 
+        event Action<IAdResponse> OnAdShown; 
         
         bool IsInitialized { get; }
         bool IsAnyAdShowing { get; }
         int Weight { get; }
 
         void Initialize();
-        bool IsAdReady(AdType type);
-        bool IsAdShowing(AdType type);
-        void ShowAd(AdType type, Action<AdType, bool> callback, string placement);
+        bool IsReady(AdType type);
+        bool IsShowing(AdType type);
+        void Show(IAdRequest request);
         void HideAd(AdType type);
         void DeInitialize();
     }

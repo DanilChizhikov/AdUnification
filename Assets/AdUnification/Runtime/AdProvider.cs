@@ -1,15 +1,32 @@
 using System;
 using System.Collections.Generic;
-using MbsCore.AdUnification.Infrastructure;
 
-namespace MbsCore.AdUnification.Runtime
+namespace DTech.AdUnification
 {
     public abstract class AdProvider<TConfig, TAdapter> : IAdProvider
             where TConfig : IAdConfig where TAdapter : AdAdapter<TConfig>
     {
-        private readonly Dictionary<AdType, TAdapter> _adaptersMap;
+        private readonly HashSet<TAdapter> _adapters;
+        private readonly Dictionary<AdType, TAdapter> _adapterMap;
         
-        public event Action<AdType, bool> OnAdShown;
+        public event Action<IAdResponse> OnAdShown
+        {
+            add
+            {
+                foreach (var adapter in _adapters)
+                {
+                    adapter.OnAdShown += value;
+                }
+            }
+
+            remove
+            {
+                foreach (var adapter in _adapters)
+                {
+                    adapter.OnAdShown -= value;
+                }
+            }
+        }
         
         public bool IsInitialized { get; private set; }
 
@@ -17,14 +34,14 @@ namespace MbsCore.AdUnification.Runtime
         {
             get
             {
-                foreach (var adapter in _adaptersMap)
+                foreach (var adapter in _adapters)
                 {
-                    if (IsAdShowing(adapter.Key))
+                    if (adapter.IsShowing)
                     {
                         return true;
                     }
                 }
-
+                
                 return false;
             }
         }
@@ -35,13 +52,14 @@ namespace MbsCore.AdUnification.Runtime
 
         public AdProvider(TConfig config, IEnumerable<TAdapter> adapters)
         {
-            _adaptersMap = new Dictionary<AdType, TAdapter>();
-            foreach (TAdapter adapter in adapters)
+            Config = config.ThrowIfNull();
+            _adapters = new HashSet<TAdapter>(adapters.ThrowIfNull());
+            _adapterMap = new Dictionary<AdType, TAdapter>(_adapters.Count);
+            foreach (var adapter in _adapters)
             {
-                _adaptersMap.Add(adapter.Type, adapter);
+                _adapterMap.Add(adapter.ServicedAdType, adapter);
             }
-
-            Config = config;
+            
             IsInitialized = false;
         }
         
@@ -57,45 +75,37 @@ namespace MbsCore.AdUnification.Runtime
             IsInitialized = true;
         }
 
-        public bool IsAdReady(AdType type)
+        public bool IsReady(AdType type) => IsInitialized && _adapterMap.TryGetValue(type, out TAdapter adapter) && adapter.IsReady;
+
+        public bool IsShowing(AdType type) => IsInitialized && _adapterMap.TryGetValue(type, out TAdapter adapter) && adapter.IsShowing;
+
+        public void Show(IAdRequest request)
         {
-            if (!IsInitialized || !_adaptersMap.TryGetValue(type, out TAdapter adapter))
+            if (!IsInitialized || !_adapterMap.TryGetValue(request.Type, out TAdapter adapter))
             {
-                return false;
-            }
-
-            return adapter.IsAdReady;
-        }
-
-        public bool IsAdShowing(AdType type)
-        {
-            if (!IsInitialized || !_adaptersMap.TryGetValue(type, out TAdapter adapter))
-            {
-                return false;
-            }
-
-            return adapter.IsAdShowing;
-        }
-
-        public void ShowAd(AdType type, Action<AdType, bool> callback, string placement)
-        {
-            if (!IsInitialized || !_adaptersMap.TryGetValue(type, out TAdapter adapter))
-            {
-                callback?.Invoke(type, false);
+                request.Callback?.Invoke(new AdResponse
+                {
+                    Type = request.Type,
+                    IsSuccessful = false,
+                });
+                
                 return;
             }
             
-            adapter.ShowAd(placement, callback);
+            adapter.ShowAd(request);
         }
 
         public void HideAd(AdType type)
         {
-            if (!IsInitialized || !_adaptersMap.TryGetValue(type, out TAdapter adapter))
+            if (!IsInitialized)
             {
                 return;
             }
             
-            adapter.HideAd();
+            if (_adapterMap.TryGetValue(type, out TAdapter adapter))
+            {
+                adapter.HideAd();
+            }
         }
 
         public void DeInitialize()
@@ -107,6 +117,8 @@ namespace MbsCore.AdUnification.Runtime
             
             DeInitializeAdapters();
             DeInitializeProcessing();
+            _adapters.Clear();
+            _adapterMap.Clear();
             IsInitialized = false;
         }
         
@@ -115,25 +127,18 @@ namespace MbsCore.AdUnification.Runtime
 
         private void InitializeAdapters()
         {
-            foreach (var adapter in _adaptersMap)
+            foreach (var adapter in _adapters)
             {
-                adapter.Value.OnAdShown += AdShownCallback;
-                adapter.Value.Initialize();
+                adapter.Initialize();
             }
         }
 
         private void DeInitializeAdapters()
         {
-            foreach (var adapter in _adaptersMap)
+            foreach (var adapter in _adapters)
             {
-                adapter.Value.OnAdShown -= AdShownCallback;
-                adapter.Value.DeInitialize();
+                adapter.DeInitialize();
             }
-        }
-        
-        private void AdShownCallback(AdType type, bool result)
-        {
-            OnAdShown?.Invoke(type, result);
         }
     }
 }

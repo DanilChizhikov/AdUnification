@@ -1,42 +1,21 @@
 using System;
-using MbsCore.AdUnification.Infrastructure;
 
-namespace MbsCore.AdUnification.Runtime
+namespace DTech.AdUnification
 {
     public abstract class AdAdapter<TConfig> : IAdAdapter
             where TConfig : IAdConfig
     {
-        private class AdCallbackHandler
-        {
-            public event Action<AdType, bool> OnCallback; 
-            
-            private readonly AdType _type;
-
-            public AdCallbackHandler(AdType type)
-            {
-                _type = type;
-            }
-
-            public void Callback(bool result)
-            {
-                OnCallback?.Invoke(_type, result);
-            }
-        }
+        public abstract event Action<IAdResponse> OnAdShown;
         
-        public event Action<AdType, bool> OnAdShown;
-        
-        public abstract AdType Type { get; }
+        public abstract AdType ServicedAdType { get; }
         public bool IsInitialized { get; private set; }
 
-        public bool IsAdReady => IsInitialized && IsReady();
-        public bool IsAdShowing => IsInitialized && IsShowing();
+        public abstract bool IsReady { get; }
+        public abstract bool IsShowing { get; }
         
         protected TConfig Config { get; }
 
-        public AdAdapter(TConfig config)
-        {
-            Config = config;
-        }
+        public AdAdapter(TConfig config) => Config = config.ThrowIfNull();
         
         public void Initialize()
         {
@@ -49,21 +28,22 @@ namespace MbsCore.AdUnification.Runtime
             IsInitialized = true;
         }
 
-        public void ShowAd(string placement, Action<AdType, bool> callback)
+        public void ShowAd(IAdRequest request)
         {
-            var callbackHandler = new AdCallbackHandler(Type);
-            callbackHandler.OnCallback += callback;
-            callbackHandler.OnCallback += OnAdShown;
             if (IsInitialized)
             {
-                ShowAdProcessing(placement, callbackHandler.Callback);
+                ShowAdProcessing(request);
             }
             else
             {
-                callbackHandler.Callback(false);
+                request.Callback?.Invoke(new AdResponse
+                {
+                    Type = request.Type,
+                    IsSuccessful = false,
+                });
             }
         }
-
+        
         public void HideAd()
         {
             if (IsInitialized)
@@ -84,9 +64,7 @@ namespace MbsCore.AdUnification.Runtime
         }
 
         protected virtual void InitializeProcessing() { }
-        protected abstract bool IsReady();
-        protected abstract bool IsShowing();
-        protected abstract void ShowAdProcessing(string placement, Action<bool> callback);
+        protected abstract void ShowAdProcessing(IAdRequest request);
         protected abstract void HideAdProcessing();
         protected virtual void DeInitializeProcessing() { }
     }

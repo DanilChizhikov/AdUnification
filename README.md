@@ -13,6 +13,7 @@ without having to add new event dispatch points to the code for each of them.
     - [Initialization](#Initialization)
     - [Custom Providers, Adapters & Configs](#Custom-Providers,-Adapters-&-Configs)
     - [AdService Methods](#AdService-Methods)
+    - [Requests And Responses](#Requests-And-Responses)
 - [License](#License)
 
 ## Getting Started
@@ -28,7 +29,7 @@ Prerequisites:
 1. Navigate to your project's Packages folder and open the manifest.json file.
 2. Add this line below the "dependencies": { line
     - ```json title="Packages/manifest.json"
-      "com.danilchizhikov.adunification": "https://github.com/DanilChizhikov/AdUnification.git?path=Assets/AdUnification#0.0.1",
+      "com.danilchizhikov.adunification": "https://github.com/DanilChizhikov/AdUnification.git?path=Assets/AdUnification",
       ```
 UPM should now install the package.
 
@@ -54,7 +55,7 @@ public class AdServiceBootstrap : MonoBehaviour
             return;
         }
 
-        var adapters = new List<ExampleAdapter>()
+        var adapters = new List<IAdAdapter>()
                 {
                         new ExampleRewardedAdapter(_config),
                 };
@@ -68,11 +69,11 @@ public class AdServiceBootstrap : MonoBehaviour
 
 ### Custom Providers, Adapters & Configs
 In order to create your own custom config for the advertisement provider and adapter,
-it is enough to inherit from the abstract AdConfig class or IAdConfig interface.
+it is enough to inherit from the abstract ScriptableAdConfig class or IAdConfig interface.
 
 Example Config:
 ```csharp
-public class ExampleConfig : AdConfig
+public class ExampleConfig : ScriptableAdConfig
 {
     // Yours config data
 }
@@ -84,14 +85,13 @@ or you can inherit from the IAdAdapter interface and implement all the methods y
 
 Example Adapter:
 ```csharp
-public abstract class ExampleAdapter : AdAdapter<ExampleConfig>
-{
-    protected ExampleAdapter(ExampleConfig config) : base(config) { }
-}
-
 public sealed class ExampleRewardedAdapter : ExampleAdapter
-{
-    public override AdType Type => AdType.Rewarded;
+{   
+    public override event Action<IAdResponse> OnAdShown;
+    
+    public override AdType ServicedAdType { get; }
+    public override bool IsReady { get; }
+    public override bool IsShowing { get; }
     
     public ExampleRewardedAdapter(ExampleConfig config) : base(config) { }
 
@@ -100,17 +100,7 @@ public sealed class ExampleRewardedAdapter : ExampleAdapter
         base.InitializeProcessing();
     }
 
-    protected override bool IsReady()
-    {
-        return true;
-    }
-
-    protected override bool IsShowing()
-    {
-        return false;
-    }
-
-    protected override void ShowAdProcessing(string placement, Action<bool> callback)
+    protected override void ShowAdProcessing(IAdRequest request)
     {
         // some code ...
     }
@@ -154,26 +144,39 @@ public sealed class ExampleProvider : AdProvider<ExampleConfig, ExampleAdapter>
 ```csharp
 public interface IAdService
 {
-    //Called after switch ad status
-    event Action<AdStatus> OnStatusChanged;
     //Called after shown ad with ad type and result
-    event Action<AdType, bool> OnAdShown;
+    event Action<IAdResponse> OnAdShown;
     
     bool IsInitialized { get; }
-    AdStatus Status { get; }
-    bool IsAnyAdShowing { get; }
+    bool AnyAdIsShowing { get; }
 
     //Need for initialize
     void Initialize();
-    //Switch ad status
-    void SetStatus(AdStatus value);
     //Check ad is ready by type
-    bool IsAdReady(AdType type);
+    bool IsReady(AdType type);
     //Check ad is showing by type
-    bool IsAdShowing(AdType type);
-    //Try show ad by type
-    bool TryAdShow(AdType type, Action<AdType, bool> callback = null, string placement = null);
+    bool IsShowing(AdType type);
+    //Try show ad by request
+    bool TryShowAd(IAdRequest request);
+    //Hide ad by type
     void HideAd(AdType type);
+}
+```
+
+### Requests And Responses
+```csharp
+public interface IAdRequest
+{
+    AdType Type { get; }
+    string Placement { get; }
+    Action<IAdResponse> Callback { get; }
+}
+```
+```csharp
+public interface IAdResponse
+{
+    AdType Type { get; }
+    bool IsSuccessful { get; }
 }
 ```
 
