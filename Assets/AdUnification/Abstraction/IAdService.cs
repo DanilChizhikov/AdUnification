@@ -1,18 +1,13 @@
-using System;
-
 namespace DTech.AdUnification
 {
     public interface IAdService
     {
-        event Action<AdType> OnAdLoaded;
-        event Action<AdType> OnAdBeganShow; 
-        event Action<IAdResponse> OnAdShown;
-        
         bool IsInitialized { get; }
 
         void Initialize();
-        bool IsReady(AdType type);
-        bool TryShowAd(IAdRequest request);
-        void HideAd(AdType type);
+        bool IsReady<TAd>() where TAd : IAd;
+        int GetAdNonAlloc<TAd>(TAd[] ads) where TAd : IAd;
+        bool TryShowAd<TAd>(string placement = null) where TAd : IAd;
+        void HideAd<TAd>() where TAd : IAd;
     }
 }
