@@ -5,6 +5,44 @@ namespace DTech.AdUnification
 {
     public sealed class AdService : IAdService, IDisposable
     {
+        public event Action<AdType> OnAdLoaded
+        {
+            add
+            {
+                foreach (var provider in _providers)
+                {
+                    provider.OnAdLoaded += value;
+                }
+            }
+
+            remove
+            {
+                foreach (var provider in _providers)
+                {
+                    provider.OnAdLoaded -= value;
+                }
+            }
+        }
+
+        public event Action<AdType> OnAdBeganShow
+        {
+            add
+            {
+                foreach (var provider in _providers)
+                {
+                    provider.OnAdBeganShow += value;
+                }
+            }
+
+            remove
+            {
+                foreach (var provider in _providers)
+                {
+                    provider.OnAdBeganShow -= value;
+                }
+            }
+        }
+
         public event Action<IAdResponse> OnAdShown
         {
             add
@@ -106,20 +144,7 @@ namespace DTech.AdUnification
         public bool TryShowAd(IAdRequest request)
         {
             bool result = TryGetProvider(request.ThrowIfNull().Type, out IAdProvider provider);
-            if (result)
-            {
-                provider.Show(request);
-            }
-            else
-            {
-                request.Callback?.Invoke(new AdResponse
-                {
-                    Type = request.Type,
-                    IsSuccessful = false,
-                });
-            }
-
-            return result;
+            return result && provider.TryShow(request);
         }
         public void HideAd(AdType type)
         {

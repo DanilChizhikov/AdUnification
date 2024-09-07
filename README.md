@@ -86,8 +86,8 @@ or you can inherit from the IAdAdapter interface and implement all the methods y
 Example Adapter:
 ```csharp
 public sealed class ExampleRewardedAdapter : ExampleAdapter
-{   
-    public override event Action<IAdResponse> OnAdShown;
+{
+    public override event Action<AdType> OnAdLoaded;
     
     public override AdType ServicedAdType { get; }
     public override bool IsReady { get; }
@@ -100,7 +100,7 @@ public sealed class ExampleRewardedAdapter : ExampleAdapter
         base.InitializeProcessing();
     }
 
-    protected override void ShowAdProcessing(IAdRequest request)
+    protected override bool ShowAdProcessing(IAdRequest request)
     {
         // some code ...
     }
@@ -116,6 +116,8 @@ public sealed class ExampleRewardedAdapter : ExampleAdapter
     }
 }
 ```
+
+Use protected method ```SendAdShown(IAdResponse response)``` when you show ad.
 
 Next, you need to create a provider that will collect all the adapters and manage advertising through them.
 
@@ -144,7 +146,11 @@ public sealed class ExampleProvider : AdProvider<ExampleConfig, ExampleAdapter>
 ```csharp
 public interface IAdService
 {
-    //Called after shown ad with ad type and result
+    //Called when ad was load
+    event Action<AdType> OnAdLoaded;
+    //Called before shown ad
+    event Action<AdType> OnAdBeganShow;
+    //Called after shown ad
     event Action<IAdResponse> OnAdShown;
     
     bool IsInitialized { get; }
@@ -169,7 +175,6 @@ public interface IAdRequest
 {
     AdType Type { get; }
     string Placement { get; }
-    Action<IAdResponse> Callback { get; }
 }
 ```
 ```csharp
