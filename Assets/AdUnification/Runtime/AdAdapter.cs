@@ -5,14 +5,9 @@ namespace DTech.AdUnification
     public abstract class AdAdapter<TConfig> : IAdAdapter
             where TConfig : IAdConfig
     {
-        public abstract event Action<AdType> OnAdLoaded;
-        public event Action<AdType> OnAdBeganShow;
-        public event Action<IAdResponse> OnAdShown;
-        
-        public abstract AdType ServicedAdType { get; }
+        public abstract Type ServicedAdType { get; }
         public bool IsInitialized { get; private set; }
-
-        public abstract bool IsReady { get; }
+        public abstract IAd BaseAD { get; }
         
         protected TConfig Config { get; }
 
@@ -29,25 +24,15 @@ namespace DTech.AdUnification
             IsInitialized = true;
         }
 
-        public bool TryShowAd(IAdRequest request)
+        public bool TryShowAd(string placement)
         {
-            if (!IsInitialized)
+            if (!IsInitialized || !BaseAD.IsReady)
             {
                 return false;
             }
             
-            OnAdBeganShow?.Invoke(request.Type);
-            bool result = ShowAdProcessing(request);
-            if (!result)
-            {
-                SendAdShown(new AdResponse
-                {
-                    Type = request.Type,
-                    IsSuccessful = false,
-                });
-            }
-
-            return result;
+            ShowAdProcessing(placement);
+            return true;
         }
         
         public void HideAd()
@@ -70,9 +55,22 @@ namespace DTech.AdUnification
         }
 
         protected virtual void InitializeProcessing() { }
-        protected abstract bool ShowAdProcessing(IAdRequest request);
+        protected abstract void ShowAdProcessing(string placement);
         protected abstract void HideAdProcessing();
-        protected void SendAdShown(IAdResponse response) => OnAdShown?.Invoke(response);
         protected virtual void DeInitializeProcessing() { }
+    }
+
+    public abstract class AdAdapter<TConfig, TAd> : AdAdapter<TConfig>
+        where TConfig : IAdConfig
+        where TAd : IAd
+    {
+        public sealed override Type ServicedAdType => typeof(TAd);
+        public sealed override IAd BaseAD => Ad;
+
+        protected abstract TAd Ad { get; }
+        
+        public AdAdapter(TConfig config) : base(config)
+        {
+        }
     }
 }
