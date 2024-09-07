@@ -6,14 +6,14 @@ namespace DTech.AdUnification
     {
         event Action<IAdResponse> OnAdShown;
         
-        Type ServicedRequestType { get; }
+        AdType ServicedAdType { get; }
         
         bool IsInitialized { get; }
-        bool IsAdReady { get; }
-        bool IsAdShowing { get; }
+        bool IsReady { get; }
+        bool IsShowing { get; }
         
         void Initialize();
-        void ShowAd(IAd request, Action<IAdResponse> callback);
+        void ShowAd(IAdRequest request);
         void HideAd();
         void DeInitialize();
     }

@@ -11,10 +11,10 @@ namespace DTech.AdUnification
         int Weight { get; }
 
         void Initialize();
-        bool IsAdReady<T>() where T : IAd;
-        bool IsAdShowing<T>() where T : IAd;
-        void ShowAd(IAd request, Action<IAdResponse> callback);
-        void HideAd<T>() where T : IAd;
+        bool IsReady(AdType type);
+        bool IsShowing(AdType type);
+        void Show(IAdRequest request);
+        void HideAd(AdType type);
         void DeInitialize();
     }
 }

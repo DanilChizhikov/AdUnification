@@ -6,24 +6,42 @@ namespace DTech.AdUnification
     public abstract class AdProvider<TConfig, TAdapter> : IAdProvider
             where TConfig : IAdConfig where TAdapter : AdAdapter<TConfig>
     {
-        private readonly AdAdapterMap<TAdapter> _adAdapterMap;
+        private readonly HashSet<TAdapter> _adapters;
+        private readonly Dictionary<AdType, TAdapter> _adapterMap;
+        
+        public event Action<IAdResponse> OnAdShown
+        {
+            add
+            {
+                foreach (var adapter in _adapters)
+                {
+                    adapter.OnAdShown += value;
+                }
+            }
 
-        public event Action<IAdResponse> OnAdShown;
+            remove
+            {
+                foreach (var adapter in _adapters)
+                {
+                    adapter.OnAdShown -= value;
+                }
+            }
+        }
+        
         public bool IsInitialized { get; private set; }
 
         public bool IsAnyAdShowing
         {
             get
             {
-                for (int i = 0; i < _adAdapterMap.Count; i++)
+                foreach (var adapter in _adapters)
                 {
-                    TAdapter adapter = _adAdapterMap[i];
-                    if (adapter.IsAdShowing)
+                    if (adapter.IsShowing)
                     {
                         return true;
                     }
                 }
-
+                
                 return false;
             }
         }
@@ -35,7 +53,13 @@ namespace DTech.AdUnification
         public AdProvider(TConfig config, IEnumerable<TAdapter> adapters)
         {
             Config = config.ThrowIfNull();
-            _adAdapterMap = new AdAdapterMap<TAdapter>(adapters);
+            _adapters = new HashSet<TAdapter>(adapters.ThrowIfNull());
+            _adapterMap = new Dictionary<AdType, TAdapter>(_adapters.Count);
+            foreach (var adapter in _adapters)
+            {
+                _adapterMap.Add(adapter.ServicedAdType, adapter);
+            }
+            
             IsInitialized = false;
         }
         
@@ -51,43 +75,37 @@ namespace DTech.AdUnification
             IsInitialized = true;
         }
 
-        public bool IsAdReady<T>() where T : IAd
+        public bool IsReady(AdType type) => IsInitialized && _adapterMap.TryGetValue(type, out TAdapter adapter) && adapter.IsReady;
+
+        public bool IsShowing(AdType type) => IsInitialized && _adapterMap.TryGetValue(type, out TAdapter adapter) && adapter.IsShowing;
+
+        public void Show(IAdRequest request)
         {
-            if (!IsInitialized || !_adAdapterMap.TryGetAdapter(typeof(T), out TAdapter adapter))
+            if (!IsInitialized || !_adapterMap.TryGetValue(request.Type, out TAdapter adapter))
             {
-                return false;
-            }
-
-            return adapter.IsAdReady;
-        }
-
-        public bool IsAdShowing<T>() where T : IAd => IsAdShowing(typeof(T));
-
-        public void ShowAd(IAd request, Action<IAdResponse> callback)
-        {
-            if (!IsInitialized || !_adAdapterMap.TryGetAdapter(request.GetType(), out TAdapter adapter))
-            {
-                var response = new SimpleResponse
+                request.Callback?.Invoke(new AdResponse
                 {
-                    Ad = request,
+                    Type = request.Type,
                     IsSuccessful = false,
-                };
+                });
                 
-                callback?.Invoke(response);
                 return;
             }
             
-            adapter.ShowAd(request, callback);
+            adapter.ShowAd(request);
         }
 
-        public void HideAd<T>() where T : IAd
+        public void HideAd(AdType type)
         {
-            if (!IsInitialized || !_adAdapterMap.TryGetAdapter(typeof(T), out TAdapter adapter))
+            if (!IsInitialized)
             {
                 return;
             }
             
-            adapter.HideAd();
+            if (_adapterMap.TryGetValue(type, out TAdapter adapter))
+            {
+                adapter.HideAd();
+            }
         }
 
         public void DeInitialize()
@@ -99,7 +117,8 @@ namespace DTech.AdUnification
             
             DeInitializeAdapters();
             DeInitializeProcessing();
-            _adAdapterMap.Clear();
+            _adapters.Clear();
+            _adapterMap.Clear();
             IsInitialized = false;
         }
         
@@ -108,37 +127,18 @@ namespace DTech.AdUnification
 
         private void InitializeAdapters()
         {
-            for (int i = 0; i < _adAdapterMap.Count; i++)
+            foreach (var adapter in _adapters)
             {
-                TAdapter adapter = _adAdapterMap[i];
-                adapter.OnAdShown += AdShownCallback;
                 adapter.Initialize();
             }
         }
 
-        private bool IsAdShowing(Type requestType)
-        {
-            if (!IsInitialized || !_adAdapterMap.TryGetAdapter(requestType, out TAdapter adapter))
-            {
-                return false;
-            }
-
-            return adapter.IsAdShowing;
-        }
-
         private void DeInitializeAdapters()
         {
-            for (int i = 0; i < _adAdapterMap.Count; i++)
+            foreach (var adapter in _adapters)
             {
-                TAdapter adapter = _adAdapterMap[i];
-                adapter.OnAdShown -= AdShownCallback;
                 adapter.DeInitialize();
             }
-        }
-        
-        private void AdShownCallback(IAdResponse response)
-        {
-            OnAdShown?.Invoke(response);
         }
     }
 }

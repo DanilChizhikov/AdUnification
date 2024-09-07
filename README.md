@@ -13,6 +13,7 @@ without having to add new event dispatch points to the code for each of them.
     - [Initialization](#Initialization)
     - [Custom Providers, Adapters & Configs](#Custom-Providers,-Adapters-&-Configs)
     - [AdService Methods](#AdService-Methods)
+    - [Requests And Responses](#Requests-And-Responses)
 - [License](#License)
 
 ## Getting Started
@@ -68,11 +69,11 @@ public class AdServiceBootstrap : MonoBehaviour
 
 ### Custom Providers, Adapters & Configs
 In order to create your own custom config for the advertisement provider and adapter,
-it is enough to inherit from the abstract AdConfig class or IAdConfig interface.
+it is enough to inherit from the abstract ScriptableAdConfig class or IAdConfig interface.
 
 Example Config:
 ```csharp
-public class ExampleConfig : AdConfig
+public class ExampleConfig : ScriptableAdConfig
 {
     // Yours config data
 }
@@ -84,14 +85,14 @@ or you can inherit from the IAdAdapter interface and implement all the methods y
 
 Example Adapter:
 ```csharp
-public abstract class ExampleAdapter<TAd> : AdAdapter<ExampleConfig, TAd>
-    where TAd : IAd
-{
-    public ExampleAdapter(ExampleConfig config) : base(config) { }
-}
-
-public sealed class ExampleRewardedAdapter : ExampleAdapter<IRewardedAd>
+public sealed class ExampleRewardedAdapter : ExampleAdapter
 {   
+    public override event Action<IAdResponse> OnAdShown;
+    
+    public override AdType ServicedAdType { get; }
+    public override bool IsReady { get; }
+    public override bool IsShowing { get; }
+    
     public ExampleRewardedAdapter(ExampleConfig config) : base(config) { }
 
     protected override void InitializeProcessing()
@@ -99,17 +100,7 @@ public sealed class ExampleRewardedAdapter : ExampleAdapter<IRewardedAd>
         base.InitializeProcessing();
     }
 
-    protected override bool IsReady()
-    {
-        return true;
-    }
-
-    protected override bool IsShowing()
-    {
-        return false;
-    }
-
-    protected override void ShowAdProcessing(IRewardedAd request, Action<IAdResponse> callback)
+    protected override void ShowAdProcessing(IAdRequest request)
     {
         // some code ...
     }
@@ -132,9 +123,9 @@ To create a provider, it is enough to inherit a new class from AdProvider<Config
 
 Example Provider:
 ```csharp
-public sealed class ExampleProvider : AdProvider<ExampleConfig, IAdAdapter>
+public sealed class ExampleProvider : AdProvider<ExampleConfig, ExampleAdapter>
 {
-    public ExampleProvider(ExampleConfig config, IEnumerable<IAdAdapter> adapters) : base(config, adapters) { }
+    public ExampleProvider(ExampleConfig config, IEnumerable<ExampleAdapter> adapters) : base(config, adapters) { }
 
     protected override void InitializeProcessing()
     {
@@ -153,26 +144,39 @@ public sealed class ExampleProvider : AdProvider<ExampleConfig, IAdAdapter>
 ```csharp
 public interface IAdService
 {
-    //Called after switch ad status
-    event Action<AdStatus> OnStatusChanged;
     //Called after shown ad with ad type and result
     event Action<IAdResponse> OnAdShown;
     
     bool IsInitialized { get; }
-    AdStatus Status { get; }
-    bool IsAnyAdShowing { get; }
+    bool AnyAdIsShowing { get; }
 
     //Need for initialize
     void Initialize();
-    //Switch ad status
-    void SetStatus(AdStatus value);
     //Check ad is ready by type
-    bool AdIsReady<T>() where T : IAd;
+    bool IsReady(AdType type);
     //Check ad is showing by type
-    bool AdIsShowing<T>() where T : IAd;
-    //Try show ad by type
-    bool TryAdShow(IAd request, Action<IAdResponse> callback = null);
-    void HideAd<T>() where T : IAd;
+    bool IsShowing(AdType type);
+    //Try show ad by request
+    bool TryShowAd(IAdRequest request);
+    //Hide ad by type
+    void HideAd(AdType type);
+}
+```
+
+### Requests And Responses
+```csharp
+public interface IAdRequest
+{
+    AdType Type { get; }
+    string Placement { get; }
+    Action<IAdResponse> Callback { get; }
+}
+```
+```csharp
+public interface IAdResponse
+{
+    AdType Type { get; }
+    bool IsSuccessful { get; }
 }
 ```
 
