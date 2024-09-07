@@ -66,23 +66,7 @@ namespace DTech.AdUnification
             }
         }
         
-        public bool IsInitialized { get; private set; }
-
-        public bool IsAnyAdShowing
-        {
-            get
-            {
-                foreach (var adapter in _adapters)
-                {
-                    if (adapter.IsShowing)
-                    {
-                        return true;
-                    }
-                }
-                
-                return false;
-            }
-        }
+        public abstract bool IsInitialized { get; }
         
         public int Weight => Config.Weight;
         
@@ -97,25 +81,11 @@ namespace DTech.AdUnification
             {
                 _adapterMap.Add(adapter.ServicedAdType, adapter);
             }
-            
-            IsInitialized = false;
         }
-        
-        public void Initialize()
-        {
-            if (IsInitialized)
-            {
-                return;
-            }
-            
-            InitializeProcessing();
-            InitializeAdapters();
-            IsInitialized = true;
-        }
+
+        public abstract void Initialize();
 
         public bool IsReady(AdType type) => IsInitialized && _adapterMap.TryGetValue(type, out TAdapter adapter) && adapter.IsReady;
-
-        public bool IsShowing(AdType type) => IsInitialized && _adapterMap.TryGetValue(type, out TAdapter adapter) && adapter.IsShowing;
 
         public bool TryShow(IAdRequest request)
         {
@@ -140,7 +110,7 @@ namespace DTech.AdUnification
             }
         }
 
-        public void DeInitialize()
+        public virtual void DeInitialize()
         {
             if (!IsInitialized)
             {
@@ -148,16 +118,11 @@ namespace DTech.AdUnification
             }
             
             DeInitializeAdapters();
-            DeInitializeProcessing();
             _adapters.Clear();
             _adapterMap.Clear();
-            IsInitialized = false;
         }
-        
-        protected virtual void InitializeProcessing() { }
-        protected virtual void DeInitializeProcessing() { }
 
-        private void InitializeAdapters()
+        protected void InitializeAdapters()
         {
             foreach (var adapter in _adapters)
             {
@@ -165,7 +130,7 @@ namespace DTech.AdUnification
             }
         }
 
-        private void DeInitializeAdapters()
+        protected void DeInitializeAdapters()
         {
             foreach (var adapter in _adapters)
             {

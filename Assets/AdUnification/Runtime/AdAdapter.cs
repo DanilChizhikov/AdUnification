@@ -13,7 +13,6 @@ namespace DTech.AdUnification
         public bool IsInitialized { get; private set; }
 
         public abstract bool IsReady { get; }
-        public abstract bool IsShowing { get; }
         
         protected TConfig Config { get; }
 
