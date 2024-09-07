@@ -67,22 +67,6 @@ namespace DTech.AdUnification
         
         public bool IsInitialized { get; private set; }
 
-        public bool AnyAdIsShowing
-        {
-            get
-            {
-                foreach (IAdProvider provider in _providers)
-                {
-                    if (provider.IsAnyAdShowing)
-                    {
-                        return true;
-                    }
-                }
-
-                return false;
-            }
-        }
-
         public AdService(IEnumerable<IAdProvider> providers)
         {
             _providers = new HashSet<IAdProvider>(providers.ThrowIfNull());
@@ -125,22 +109,6 @@ namespace DTech.AdUnification
             return false;
         }
 
-        public bool IsShowing(AdType type)
-        {
-            if (IsInitialized)
-            {
-                foreach (var provider in _providers)
-                {
-                    if (provider.IsShowing(type))
-                    {
-                        return true;
-                    }
-                }
-            }
-            
-            return false;
-        }
-
         public bool TryShowAd(IAdRequest request)
         {
             bool result = TryGetProvider(request.ThrowIfNull().Type, out IAdProvider provider);
@@ -150,10 +118,7 @@ namespace DTech.AdUnification
         {
             foreach (var provider in _providers)
             {
-                if (provider.IsShowing(type))
-                {
-                    provider.HideAd(type);
-                }
+                provider.HideAd(type);
             }
         }
 
@@ -175,8 +140,8 @@ namespace DTech.AdUnification
         private bool TryGetProvider(AdType type, out IAdProvider provider)
         {
             provider = null;
-            var availableProviders = new HashSet<IAdProvider>();
-            int maxWeight = int.MinValue;
+            var availableProviders = new List<IAdProvider>(_providers.Count);
+            int maxWeight = 0;
             foreach (IAdProvider advertisementProvider in _providers)
             {
                 if (!advertisementProvider.IsInitialized || !advertisementProvider.IsReady(type))
@@ -188,18 +153,22 @@ namespace DTech.AdUnification
                 availableProviders.Add(advertisementProvider);
             }
 
-            int randomWeight = _random.Next(maxWeight);
-            foreach (IAdProvider availableProvider in availableProviders)
+            if (availableProviders.Count > 0)
             {
-                randomWeight -= availableProvider.Weight;
-                if (randomWeight <= 0)
+                int randomWeight = _random.Next(maxWeight);
+                for (int i = 0; i < availableProviders.Count; i++)
                 {
-                    provider = availableProvider;
-                    return true;
-                }
+                    IAdProvider availableProvider = availableProviders[i];
+                    randomWeight -= availableProvider.Weight;
+                    if (randomWeight <= 0)
+                    {
+                        provider = availableProvider;
+                        break;
+                    }
+                } 
             }
 
-            return false;
+            return !ReferenceEquals(provider, null);
         }
     }
 }

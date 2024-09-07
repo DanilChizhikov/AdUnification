@@ -91,7 +91,6 @@ public sealed class ExampleRewardedAdapter : ExampleAdapter
     
     public override AdType ServicedAdType { get; }
     public override bool IsReady { get; }
-    public override bool IsShowing { get; }
     
     public ExampleRewardedAdapter(ExampleConfig config) : base(config) { }
 
@@ -127,16 +126,14 @@ Example Provider:
 ```csharp
 public sealed class ExampleProvider : AdProvider<ExampleConfig, ExampleAdapter>
 {
+    public override bool IsInitialized { get; }
+    
     public ExampleProvider(ExampleConfig config, IEnumerable<ExampleAdapter> adapters) : base(config, adapters) { }
-
-    protected override void InitializeProcessing()
+    
+    public override void Initialize()
     {
-        base.InitializeProcessing();
-    }
-
-    protected override void DeInitializeProcessing()
-    {
-        base.DeInitializeProcessing();
+        //do something..
+        InitializeAdapters();
     }
 }
 ```
@@ -154,14 +151,11 @@ public interface IAdService
     event Action<IAdResponse> OnAdShown;
     
     bool IsInitialized { get; }
-    bool AnyAdIsShowing { get; }
 
     //Need for initialize
     void Initialize();
     //Check ad is ready by type
     bool IsReady(AdType type);
-    //Check ad is showing by type
-    bool IsShowing(AdType type);
     //Try show ad by request
     bool TryShowAd(IAdRequest request);
     //Hide ad by type

@@ -12,7 +12,6 @@ namespace DTech.AdUnification
         
         bool IsInitialized { get; }
         bool IsReady { get; }
-        bool IsShowing { get; }
         
         void Initialize();
         bool TryShowAd(IAdRequest request);
