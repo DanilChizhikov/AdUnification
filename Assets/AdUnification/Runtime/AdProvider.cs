@@ -8,7 +8,45 @@ namespace DTech.AdUnification
     {
         private readonly HashSet<TAdapter> _adapters;
         private readonly Dictionary<AdType, TAdapter> _adapterMap;
-        
+
+        public event Action<AdType> OnAdLoaded
+        {
+            add
+            {
+                foreach (var adapter in _adapters)
+                {
+                    adapter.OnAdLoaded += value;
+                }
+            }
+
+            remove
+            {
+                foreach (var adapter in _adapters)
+                {
+                    adapter.OnAdLoaded -= value;
+                }
+            }
+        }
+
+        public event Action<AdType> OnAdBeganShow
+        {
+            add
+            {
+                foreach (var adapter in _adapters)
+                {
+                    adapter.OnAdBeganShow += value;
+                }
+            }
+
+            remove
+            {
+                foreach (var adapter in _adapters)
+                {
+                    adapter.OnAdBeganShow -= value;
+                }
+            }
+        }
+
         public event Action<IAdResponse> OnAdShown
         {
             add
@@ -70,8 +108,8 @@ namespace DTech.AdUnification
                 return;
             }
             
-            InitializeAdapters();
             InitializeProcessing();
+            InitializeAdapters();
             IsInitialized = true;
         }
 
@@ -79,20 +117,14 @@ namespace DTech.AdUnification
 
         public bool IsShowing(AdType type) => IsInitialized && _adapterMap.TryGetValue(type, out TAdapter adapter) && adapter.IsShowing;
 
-        public void Show(IAdRequest request)
+        public bool TryShow(IAdRequest request)
         {
             if (!IsInitialized || !_adapterMap.TryGetValue(request.Type, out TAdapter adapter))
             {
-                request.Callback?.Invoke(new AdResponse
-                {
-                    Type = request.Type,
-                    IsSuccessful = false,
-                });
-                
-                return;
+                return false;
             }
             
-            adapter.ShowAd(request);
+            return adapter.TryShowAd(request);
         }
 
         public void HideAd(AdType type)

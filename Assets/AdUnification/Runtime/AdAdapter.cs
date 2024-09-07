@@ -5,7 +5,9 @@ namespace DTech.AdUnification
     public abstract class AdAdapter<TConfig> : IAdAdapter
             where TConfig : IAdConfig
     {
-        public abstract event Action<IAdResponse> OnAdShown;
+        public abstract event Action<AdType> OnAdLoaded;
+        public event Action<AdType> OnAdBeganShow;
+        public event Action<IAdResponse> OnAdShown;
         
         public abstract AdType ServicedAdType { get; }
         public bool IsInitialized { get; private set; }
@@ -28,20 +30,25 @@ namespace DTech.AdUnification
             IsInitialized = true;
         }
 
-        public void ShowAd(IAdRequest request)
+        public bool TryShowAd(IAdRequest request)
         {
-            if (IsInitialized)
+            if (!IsInitialized)
             {
-                ShowAdProcessing(request);
+                return false;
             }
-            else
+            
+            OnAdBeganShow?.Invoke(request.Type);
+            bool result = ShowAdProcessing(request);
+            if (!result)
             {
-                request.Callback?.Invoke(new AdResponse
+                SendAdShown(new AdResponse
                 {
                     Type = request.Type,
                     IsSuccessful = false,
                 });
             }
+
+            return result;
         }
         
         public void HideAd()
@@ -64,8 +71,9 @@ namespace DTech.AdUnification
         }
 
         protected virtual void InitializeProcessing() { }
-        protected abstract void ShowAdProcessing(IAdRequest request);
+        protected abstract bool ShowAdProcessing(IAdRequest request);
         protected abstract void HideAdProcessing();
+        protected void SendAdShown(IAdResponse response) => OnAdShown?.Invoke(response);
         protected virtual void DeInitializeProcessing() { }
     }
 }
