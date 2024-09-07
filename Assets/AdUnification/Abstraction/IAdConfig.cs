@@ -1,4 +1,4 @@
-namespace MbsCore.AdUnification.Infrastructure
+namespace DTech.AdUnification
 {
     public interface IAdConfig
     {
