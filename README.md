@@ -13,7 +13,6 @@ without having to add new event dispatch points to the code for each of them.
     - [Initialization](#Initialization)
     - [Custom Providers, Adapters & Configs](#Custom-Providers,-Adapters-&-Configs)
     - [AdService Methods](#AdService-Methods)
-    - [Requests And Responses](#Requests-And-Responses)
 - [License](#License)
 
 ## Getting Started
@@ -80,17 +79,14 @@ public class ExampleConfig : ScriptableAdConfig
 ```
 
 In order to create your own custom advertisement adapter, you can use two options,
-inherit from the ready-made abstract class AdAdapter<TConfig>, which accepts the IAdConfig as a generic parameter,
+inherit from the ready-made abstract class AdAdapter<TConfig, TAd>, which accepts the IAdConfig and TAd as a generic parameters,
 or you can inherit from the IAdAdapter interface and implement all the methods yourself.
 
 Example Adapter:
 ```csharp
-public sealed class ExampleRewardedAdapter : ExampleAdapter
+public sealed class ExampleRewardedAdapter : ExampleAdapter<IRewardedAd>
 {
-    public override event Action<AdType> OnAdLoaded;
-    
-    public override AdType ServicedAdType { get; }
-    public override bool IsReady { get; }
+    protected override IRewardedAd Ad { get; }
     
     public ExampleRewardedAdapter(ExampleConfig config) : base(config) { }
 
@@ -99,7 +95,7 @@ public sealed class ExampleRewardedAdapter : ExampleAdapter
         base.InitializeProcessing();
     }
 
-    protected override bool ShowAdProcessing(IAdRequest request)
+    protected override void ShowAdProcessing(string placement)
     {
         // some code ...
     }
@@ -116,19 +112,17 @@ public sealed class ExampleRewardedAdapter : ExampleAdapter
 }
 ```
 
-Use protected method ```SendAdShown(IAdResponse response)``` when you show ad.
-
 Next, you need to create a provider that will collect all the adapters and manage advertising through them.
 
 To create a provider, it is enough to inherit a new class from AdProvider<Config, TAdapter> which takes as generic parameters config and adapter, which are IAdConfig and IAdAdapter.
 
 Example Provider:
 ```csharp
-public sealed class ExampleProvider : AdProvider<ExampleConfig, ExampleAdapter>
+public sealed class ExampleProvider : AdProvider<ExampleConfig>
 {
     public override bool IsInitialized { get; }
     
-    public ExampleProvider(ExampleConfig config, IEnumerable<ExampleAdapter> adapters) : base(config, adapters) { }
+    public ExampleProvider(ExampleConfig config, IEnumerable<AdAdapter<ExampleConfig>> adapters) : base(config, adapters) { }
     
     public override void Initialize()
     {
@@ -142,40 +136,19 @@ public sealed class ExampleProvider : AdProvider<ExampleConfig, ExampleAdapter>
 
 ```csharp
 public interface IAdService
-{
-    //Called when ad was load
-    event Action<AdType> OnAdLoaded;
-    //Called before shown ad
-    event Action<AdType> OnAdBeganShow;
-    //Called after shown ad
-    event Action<IAdResponse> OnAdShown;
-    
+{   
     bool IsInitialized { get; }
 
     //Need for initialize
     void Initialize();
     //Check ad is ready by type
-    bool IsReady(AdType type);
+    bool IsReady<TAd>() where TAd : IAd;
+    //Returns all ads that fit into the array and match the desired type
+    int GetAdNonAlloc<TAd>(TAd[] ads) where TAd : IAd;
     //Try show ad by request
-    bool TryShowAd(IAdRequest request);
+    bool TryShowAd<TAd>(string placement = null) where TAd : IAd;
     //Hide ad by type
-    void HideAd(AdType type);
-}
-```
-
-### Requests And Responses
-```csharp
-public interface IAdRequest
-{
-    AdType Type { get; }
-    string Placement { get; }
-}
-```
-```csharp
-public interface IAdResponse
-{
-    AdType Type { get; }
-    bool IsSuccessful { get; }
+    void HideAd<TAd>() where TAd : IAd;
 }
 ```
 
