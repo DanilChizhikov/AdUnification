@@ -5,63 +5,6 @@ namespace DTech.AdUnification
 {
     public sealed class AdService : IAdService, IDisposable
     {
-        public event Action<AdType> OnAdLoaded
-        {
-            add
-            {
-                foreach (var provider in _providers)
-                {
-                    provider.OnAdLoaded += value;
-                }
-            }
-
-            remove
-            {
-                foreach (var provider in _providers)
-                {
-                    provider.OnAdLoaded -= value;
-                }
-            }
-        }
-
-        public event Action<AdType> OnAdBeganShow
-        {
-            add
-            {
-                foreach (var provider in _providers)
-                {
-                    provider.OnAdBeganShow += value;
-                }
-            }
-
-            remove
-            {
-                foreach (var provider in _providers)
-                {
-                    provider.OnAdBeganShow -= value;
-                }
-            }
-        }
-
-        public event Action<IAdResponse> OnAdShown
-        {
-            add
-            {
-                foreach (var provider in _providers)
-                {
-                    provider.OnAdShown += value;
-                }
-            }
-
-            remove
-            {
-                foreach (var provider in _providers)
-                {
-                    provider.OnAdShown -= value;
-                }
-            }
-        }
-
         private readonly HashSet<IAdProvider> _providers;
         private readonly Random _random;
         
@@ -93,32 +36,62 @@ namespace DTech.AdUnification
             IsInitialized = true;
         }
 
-        public bool IsReady(AdType type)
+        public bool IsReady<TAd>() where TAd : IAd
         {
-            if (IsInitialized)
+            foreach (var provider in _providers)
             {
-                foreach (var provider in _providers)
+                if (provider.IsReady<TAd>())
                 {
-                    if (provider.IsReady(type))
-                    {
-                        return true;
-                    }
+                    return true;
                 }
             }
             
             return false;
         }
 
-        public bool TryShowAd(IAdRequest request)
+        public int GetAdNonAlloc<TAd>(TAd[] ads) where TAd : IAd
         {
-            bool result = TryGetProvider(request.ThrowIfNull().Type, out IAdProvider provider);
-            return result && provider.TryShow(request);
+            int index = 0;
+            if (ads.ThrowIfNull().Length > 0)
+            {
+                foreach (var provider in _providers)
+                {
+                    if(!provider.TryGetAd(out TAd ad))
+                    {
+                        continue;
+                    }
+
+                    ads[index++] = ad;
+                    if (index >= ads.Length)
+                    {
+                        break;
+                    }
+                }
+            }
+
+            return index;
         }
-        public void HideAd(AdType type)
+
+        public bool TryShowAd<TAd>(string placement = null) where TAd : IAd
         {
+            if (TryGetProvider<TAd>(out IAdProvider provider))
+            {
+                return provider.TryShow<TAd>(placement);
+            }
+            
+            return false;
+        }
+
+        public void HideAd<TAd>() where TAd : IAd
+        {
+            if (!IsInitialized)
+            {
+                return;
+            }
+            
             foreach (var provider in _providers)
             {
-                provider.HideAd(type);
+                provider.HideAd<TAd>();
             }
         }
 
@@ -137,35 +110,26 @@ namespace DTech.AdUnification
             IsInitialized = false;
         }
         
-        private bool TryGetProvider(AdType type, out IAdProvider provider)
+        private bool TryGetProvider<TAd>(out IAdProvider provider) where TAd : IAd
         {
             provider = null;
-            var availableProviders = new List<IAdProvider>(_providers.Count);
-            int maxWeight = 0;
-            foreach (IAdProvider advertisementProvider in _providers)
+            if (IsInitialized)
             {
-                if (!advertisementProvider.IsInitialized || !advertisementProvider.IsReady(type))
+                var availableProviders = new AvailableProviderCollection<TAd>(_providers);
+                if (availableProviders.Count > 0)
                 {
-                    continue;
-                }
-
-                maxWeight += advertisementProvider.Weight;
-                availableProviders.Add(advertisementProvider);
-            }
-
-            if (availableProviders.Count > 0)
-            {
-                int randomWeight = _random.Next(maxWeight);
-                for (int i = 0; i < availableProviders.Count; i++)
-                {
-                    IAdProvider availableProvider = availableProviders[i];
-                    randomWeight -= availableProvider.Weight;
-                    if (randomWeight <= 0)
+                    int randomWeight = _random.Next(availableProviders.MaxWeight);
+                    for (int i = 0; i < availableProviders.Count; i++)
                     {
-                        provider = availableProvider;
-                        break;
-                    }
-                } 
+                        IAdProvider availableProvider = availableProviders[i];
+                        randomWeight -= availableProvider.Weight;
+                        if (randomWeight <= 0)
+                        {
+                            provider = availableProvider;
+                            break;
+                        }
+                    } 
+                }
             }
 
             return !ReferenceEquals(provider, null);

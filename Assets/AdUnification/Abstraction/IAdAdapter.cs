@@ -4,17 +4,12 @@ namespace DTech.AdUnification
 {
     public interface IAdAdapter
     {
-        event Action<AdType> OnAdLoaded; 
-        event Action<AdType> OnAdBeganShow; 
-        event Action<IAdResponse> OnAdShown;
-        
-        AdType ServicedAdType { get; }
-        
+        Type ServicedAdType { get; }
         bool IsInitialized { get; }
-        bool IsReady { get; }
+        IAd BaseAD { get; }
         
         void Initialize();
-        bool TryShowAd(IAdRequest request);
+        bool TryShowAd(string placement);
         void HideAd();
         void DeInitialize();
     }

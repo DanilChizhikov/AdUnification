@@ -1,70 +1,11 @@
-using System;
 using System.Collections.Generic;
 
 namespace DTech.AdUnification
 {
-    public abstract class AdProvider<TConfig, TAdapter> : IAdProvider
-            where TConfig : IAdConfig where TAdapter : AdAdapter<TConfig>
+    public abstract class AdProvider<TConfig> : IAdProvider
+            where TConfig : IAdConfig
     {
-        private readonly HashSet<TAdapter> _adapters;
-        private readonly Dictionary<AdType, TAdapter> _adapterMap;
-
-        public event Action<AdType> OnAdLoaded
-        {
-            add
-            {
-                foreach (var adapter in _adapters)
-                {
-                    adapter.OnAdLoaded += value;
-                }
-            }
-
-            remove
-            {
-                foreach (var adapter in _adapters)
-                {
-                    adapter.OnAdLoaded -= value;
-                }
-            }
-        }
-
-        public event Action<AdType> OnAdBeganShow
-        {
-            add
-            {
-                foreach (var adapter in _adapters)
-                {
-                    adapter.OnAdBeganShow += value;
-                }
-            }
-
-            remove
-            {
-                foreach (var adapter in _adapters)
-                {
-                    adapter.OnAdBeganShow -= value;
-                }
-            }
-        }
-
-        public event Action<IAdResponse> OnAdShown
-        {
-            add
-            {
-                foreach (var adapter in _adapters)
-                {
-                    adapter.OnAdShown += value;
-                }
-            }
-
-            remove
-            {
-                foreach (var adapter in _adapters)
-                {
-                    adapter.OnAdShown -= value;
-                }
-            }
-        }
+        private readonly AdapterMap<TConfig> _adapterMap;
         
         public abstract bool IsInitialized { get; }
         
@@ -72,39 +13,42 @@ namespace DTech.AdUnification
         
         protected TConfig Config { get; }
 
-        public AdProvider(TConfig config, IEnumerable<TAdapter> adapters)
+        public AdProvider(TConfig config, IEnumerable<AdAdapter<TConfig>> adapters)
         {
             Config = config.ThrowIfNull();
-            _adapters = new HashSet<TAdapter>(adapters.ThrowIfNull());
-            _adapterMap = new Dictionary<AdType, TAdapter>(_adapters.Count);
-            foreach (var adapter in _adapters)
-            {
-                _adapterMap.Add(adapter.ServicedAdType, adapter);
-            }
+            _adapterMap = new AdapterMap<TConfig>(adapters.ThrowIfNull());
         }
 
         public abstract void Initialize();
 
-        public bool IsReady(AdType type) => IsInitialized && _adapterMap.TryGetValue(type, out TAdapter adapter) && adapter.IsReady;
-
-        public bool TryShow(IAdRequest request)
+        public bool TryGetAd<TAd>(out TAd ad) where TAd : IAd
         {
-            if (!IsInitialized || !_adapterMap.TryGetValue(request.Type, out TAdapter adapter))
+            ad = default;
+            bool result = false;
+            if (_adapterMap.TryGetAdapter(typeof(TAd), out AdAdapter<TConfig> adapter) && adapter.BaseAD is TAd genericAd)
+            {
+                ad = genericAd;
+                result = true;
+            }
+
+            return result;
+        }
+
+        public bool IsReady<TAd>() where TAd : IAd => IsInitialized && TryGetAd(out TAd ad) && ad.IsReady;
+
+        public bool TryShow<TAd>(string placement) where TAd : IAd
+        {
+            if (!IsInitialized || !_adapterMap.TryGetAdapter(typeof(TAd), out AdAdapter<TConfig> adapter))
             {
                 return false;
             }
-            
-            return adapter.TryShowAd(request);
+
+            return adapter.TryShowAd(placement);
         }
 
-        public void HideAd(AdType type)
+        public void HideAd<TAd>() where TAd : IAd
         {
-            if (!IsInitialized)
-            {
-                return;
-            }
-            
-            if (_adapterMap.TryGetValue(type, out TAdapter adapter))
+            if (IsInitialized && _adapterMap.TryGetAdapter(typeof(TAd), out AdAdapter<TConfig> adapter))
             {
                 adapter.HideAd();
             }
@@ -118,23 +62,22 @@ namespace DTech.AdUnification
             }
             
             DeInitializeAdapters();
-            _adapters.Clear();
             _adapterMap.Clear();
         }
 
         protected void InitializeAdapters()
         {
-            foreach (var adapter in _adapters)
+            for (int i = 0; i < _adapterMap.Count; i++)
             {
-                adapter.Initialize();
+                _adapterMap[i].Initialize();
             }
         }
 
         protected void DeInitializeAdapters()
         {
-            foreach (var adapter in _adapters)
+            for (int i = 0; i < _adapterMap.Count; i++)
             {
-                adapter.DeInitialize();
+                _adapterMap[i].DeInitialize();
             }
         }
     }
