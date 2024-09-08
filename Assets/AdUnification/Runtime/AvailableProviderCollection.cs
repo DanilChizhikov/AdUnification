@@ -18,7 +18,7 @@ namespace DTech.AdUnification
             MaxWeight = 0;
             foreach (var provider in providers)
             {
-                if (!provider.IsInitialized || provider.IsReady<TAd>())
+                if (!provider.IsInitialized || !provider.IsReady<TAd>())
                 {
                     continue;
                 }
